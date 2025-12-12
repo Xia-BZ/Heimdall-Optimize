@@ -10,6 +10,7 @@
 #include "hd/get_rms.h"
 #include "hd/measure_bandpass.h"
 #include "hd/matched_filter.h"
+#include "hd/cached_allocator.cuh"
 
 #include <vector>
 #include <dedisp.h>
@@ -216,14 +217,19 @@ hd_error zap_filterbank_rfi(const int* h_mask, const hd_byte* h_in,
   thrust::device_vector<int>      d_mask(h_mask, h_mask+nsamps);
   WordType* d_in_ptr   = thrust::raw_pointer_cast(&d_in[0]);
   int*      d_mask_ptr = thrust::raw_pointer_cast(&d_mask[0]);
-  thrust::transform(thrust::counting_iterator<unsigned int>(0),
+  // Use cached allocator for thrust algorithm temporary memory
+  cached_allocator& g_allocator = cached_allocator::get_instance();
+  
+  thrust::transform(thrust::cuda::par(g_allocator),
+                    thrust::counting_iterator<unsigned int>(0),
                     thrust::counting_iterator<unsigned int>(nsamps*stride),
                     d_out.begin(),
                     zap_fb_rfi_functor<WordType>(d_mask_ptr, d_in_ptr,
                                                  stride, nbits,
                                                  nsamps, max_resample_dist));
   // Copy back to the host
-  thrust::copy(d_out.begin(), d_out.end(),
+  thrust::copy(thrust::cuda::par(g_allocator),
+               d_out.begin(), d_out.end(),
                (WordType*)h_out);
   
   return HD_NO_ERROR;
@@ -248,7 +254,6 @@ struct rfi_mask_functor : public thrust::binary_function<T,int,bool> {
     return (fabs(x) > thresh) || mask;
   }
 };
-
 hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
                               const hd_byte* h_in,
                               hd_size        nsamps,
@@ -266,10 +271,13 @@ hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
 {
   using thrust::counting_iterator;
   
+  // Use cached allocator for thrust algorithm temporary memory
+  cached_allocator& g_allocator = cached_allocator::get_instance();
+  
   hd_error error;
   
   typedef hd_float out_type;
-  std::vector<out_type>           h_raw_series;
+  // Removed h_raw_series - using device memory directly
   thrust::device_vector<hd_float> d_series;
   //thrust::host_vector<hd_float>   h_series;
   thrust::device_vector<hd_float> d_filtered;
@@ -331,17 +339,16 @@ hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
                        zapit);
     }
     
-    h_in_copy.resize(nsamps*stride*sizeof(WordType));
-    thrust::copy(d_in.begin(), d_in.end(),
-                 (WordType*)&h_in_copy[0]);
+    // No need to copy to h_in_copy when using device pointers for dedispersion
   }
   else {
+    // For narrow-band disabled case, still need h_in_copy for fallback compatibility
     h_in_copy.assign(h_in, h_in+nsamps*nchans*nbits/8);
   }
   // ------------------------
   
   // Broad-band RFI excision
-  // First, dedisperse at the given DM
+  // First, dedisperse at the given DM using device pointers
   // ---------------------------------
   dedisp_error derror;
   if (rfi_broad)
@@ -366,16 +373,25 @@ hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
     hd_size max_delay       = dedisp_get_max_delay(plan);
     hd_size nsamps_computed = nsamps - max_delay;
     
-    h_raw_series.resize(nsamps_computed);
+    // Prepare device buffers for dedispersion (avoid host memory)
+    d_series.resize(nsamps_computed);
     
-    unsigned flags = DEDISP_USE_DEFAULT;
-    const dedisp_byte* in        = (const dedisp_byte*)&h_in_copy[0];
-    dedisp_byte*       out       = (dedisp_byte*)&h_raw_series[0];
-    hd_size            out_nbits = sizeof(out_type)*8;
+    // Use device pointers to avoid CPU-GPU data transfers
+    unsigned flags = DEDISP_DEVICE_POINTERS;
+    const dedisp_byte* d_in_device;
+    if (nbits > 4 && rfi_narrow) {
+      // Use processed data from narrow-band RFI cleaning
+      d_in_device = (const dedisp_byte*)d_in_ptr;
+    } else {
+      // Use original input data directly
+      d_in_device = (const dedisp_byte*)d_in_ptr;
+    }
+    dedisp_byte* d_out_device = (dedisp_byte*)thrust::raw_pointer_cast(&d_series[0]);
+    hd_size out_nbits = sizeof(out_type)*8;
+    
     derror = dedisp_execute(plan, nsamps,
-                            in, nbits,// in_stride,
-                            out, out_nbits,// out_stride,
-                            //gulp_dm, dm_gulp_size,
+                            d_in_device, nbits,
+                            d_out_device, out_nbits,
                             flags);
     if( derror != DEDISP_NO_ERROR ) {
       return throw_dedisp_error(derror);
@@ -385,8 +401,7 @@ hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
     
     // Then baseline and normalise the time series
     // -------------------------------------------
-    // Copy to the device and convert to floats
-    d_series = h_raw_series;
+    // Data is already on device, no copy needed
     // Remove the baseline
     hd_size nsamps_smooth = hd_size(baseline_length / (2 * dt));
     hd_float* d_series_ptr = thrust::raw_pointer_cast(&d_series[0]);
@@ -422,7 +437,8 @@ hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
       thrust::raw_pointer_cast(&d_filtered_rfi_mask[0]);
     
     // Create an RFI mask for this filter
-    thrust::transform(d_series.begin(), d_series.end(),
+    thrust::transform(thrust::cuda::par(g_allocator),
+                      d_series.begin(), d_series.end(),
                       d_rfi_mask.begin(),
                       is_rfi<hd_float>(rfi_tol));
     
@@ -444,7 +460,8 @@ hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
       // Normalise the filtered time series (RMS ~ sqrt(time))
       thrust::constant_iterator<hd_float> 
         norm_val_iter(1.0 / sqrt((hd_float)filter_width));
-      thrust::transform(d_filtered.begin(),
+      thrust::transform(thrust::cuda::par(g_allocator),
+                        d_filtered.begin(),
                         d_filtered.end(),
                         norm_val_iter,
                         d_filtered.begin(),
@@ -454,7 +471,8 @@ hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
       hd_size filter_offset = boxcar_max / 2;
       
       // Create an RFI mask for this filter
-      thrust::transform(d_filtered.begin(), d_filtered.end(),
+      thrust::transform(thrust::cuda::par(g_allocator),
+                        d_filtered.begin(), d_filtered.end(),
                         d_filtered_rfi_mask.begin() + filter_offset,
                         is_rfi<hd_float>(rfi_tol));
       
@@ -467,7 +485,8 @@ hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
                             filter_width);
       
       // Merge the filtered mask with the global mask
-      thrust::transform(d_rfi_mask.begin(), d_rfi_mask.end(),
+      thrust::transform(thrust::cuda::par(g_allocator),
+                        d_rfi_mask.begin(), d_rfi_mask.end(),
                         d_filtered_rfi_mask.begin(),
                         d_rfi_mask.begin(),
                         thrust::logical_or<int>());
@@ -476,23 +495,43 @@ hd_error clean_filterbank_rfi(dedisp_plan    main_plan,
     // -------------------------------------
     
     // Finally, apply the mask to zap RFI in the filterbank
-    error = zap_filterbank_rfi(&h_rfi_mask[0],
-                               &h_in_copy[0],
-                               nsamps_computed,
-                               nbits,
-                               nchans,
-                               // TODO: This is somewhat arbitrary
-                               nsamps_smooth/4,
-                               &h_out[0]);
+    // Apply RFI mask directly to device data to avoid additional copies
+    if (nbits > 4 && rfi_narrow) {
+      // Use processed device data from narrow-band RFI cleaning
+      error = zap_filterbank_rfi(&h_rfi_mask[0],
+                                 (hd_byte*)d_in_ptr,  // Use device data directly
+                                 nsamps_computed,
+                                 nbits,
+                                 nchans,
+                                 nsamps_smooth/4,
+                                 h_out);
+    } else {
+      // Use original host data
+      error = zap_filterbank_rfi(&h_rfi_mask[0],
+                                 &h_in_copy[0],
+                                 nsamps_computed,
+                                 nbits,
+                                 nchans,
+                                 nsamps_smooth/4,
+                                 h_out);
+    }
     if( error != HD_NO_ERROR ) {
       return error;
     }
   }
   else
   {
-    thrust::copy(&h_in_copy[0],
-                 &h_in_copy[0] + nsamps*nchans*nbits/8,
-                 h_out);
+    if (nbits > 4 && rfi_narrow) {
+      // Copy processed device data directly to output
+      thrust::copy(thrust::cuda::par(g_allocator),
+                   d_in.begin(), d_in.end(),
+                   (WordType*)h_out);
+    } else {
+      // Copy from host buffer
+      thrust::copy(&h_in_copy[0],
+                   &h_in_copy[0] + nsamps*nchans*nbits/8,
+                   h_out);
+    }
   }
     
   return HD_NO_ERROR;

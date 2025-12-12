@@ -81,4 +81,7 @@ struct hd_params {
 
   //Thread numbers
   unsigned int num_threads;
+
+  // Pipeline parallelism
+  unsigned int num_execute_threads;
 };

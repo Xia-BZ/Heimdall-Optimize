@@ -81,7 +81,8 @@ struct plus_one : public thrust::unary_function<T,T> {
 };
 
 class GiantFinder_impl {
-  cached_allocator g_allocator;
+  // 不再直接创建实例，而是使用引用指向单例
+  cached_allocator& g_allocator = cached_allocator::get_instance();
   thrust::device_vector<hd_float> d_giant_data;
   thrust::device_vector<hd_size>  d_giant_data_inds;
   thrust::device_vector<int>      d_giant_data_segments;

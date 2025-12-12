@@ -9,6 +9,8 @@
 #include <cmath>
 #include <float.h>
 #include <stdexcept>
+#include <future>
+#include <thread>
 
 using std::cout;
 using std::cerr;
@@ -153,3 +155,11 @@ size_t SigprocFile::get_data(size_t nsamps, char* data)
   size_t bytes_read = m_file_stream.gcount();
   return bytes_read / nchan_bytes;
 };
+
+std::future<size_t> SigprocFile::get_data_async(size_t nsamps, char* data)
+{
+  // 使用异步方式读取数据，返回future对象
+  return std::async(std::launch::async, [this, nsamps, data]() {
+    return this->get_data(nsamps, data);
+  });
+}

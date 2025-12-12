@@ -22,3 +22,5 @@ struct RemoveBaselinePlan {
 private:
 	boost::shared_ptr<RemoveBaselinePlan_impl> m_impl;
 };
+
+

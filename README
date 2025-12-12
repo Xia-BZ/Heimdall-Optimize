@@ -1,2 +1,0 @@
-heimdall_pl run example:
-/heimdall_pl -f /home/zjlab/workspaces/fil_data -t 8 -output_dir ../cand

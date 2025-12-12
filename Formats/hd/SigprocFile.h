@@ -7,6 +7,8 @@
 
 
 #include <fstream>
+#include <future>
+#include <memory>
 
 #include "hd/DataSource.h"
 
@@ -19,6 +21,9 @@ class SigprocFile: public DataSource
 
     bool   get_error() const { return m_error != 0; }
     size_t get_data (size_t nsamps, char* data);
+    
+    // 异步读取方法
+    std::future<size_t> get_data_async(size_t nsamps, char* data);
 
   private:
 

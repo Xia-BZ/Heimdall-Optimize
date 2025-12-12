@@ -69,4 +69,5 @@ void hd_set_default_params(hd_params* params) {
 	params->output_dir = ".";
 
 	params->num_threads = 1;
+	params->num_execute_threads = 1;
 }

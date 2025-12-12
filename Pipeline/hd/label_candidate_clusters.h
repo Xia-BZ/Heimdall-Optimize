@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "hd/types.h"
 #include "hd/error.h"
+#include "hd/types.h"
 /*
 hd_error label_candidate_clusters(hd_size        count,
                                   const hd_size* d_begins,
@@ -36,10 +36,30 @@ hd_error label_candidate_clusters(hd_size        count,
                                   hd_size*       d_labels,
                                   hd_size*       label_count);
 */
-hd_error label_candidate_clusters(hd_size            count,
-                                  ConstRawCandidates d_cands,
-                                  hd_size            time_tol,
-                                  hd_size            filter_tol,
-                                  hd_size            dm_tol,
-                                  hd_size*           d_labels,
-                                  hd_size*           label_count);
+hd_error label_candidate_clusters(hd_size count, ConstRawCandidates d_cands,
+                                  hd_size time_tol, hd_size filter_tol,
+                                  hd_size dm_tol, hd_size *d_labels,
+                                  hd_size *label_count);
+
+// GPU优化聚类函数声明
+hd_error label_candidate_clusters_optimized(hd_size count,
+                                            ConstRawCandidates d_cands,
+                                            hd_size time_tol,
+                                            hd_size filter_tol, hd_size dm_tol,
+                                            hd_size *d_labels,
+                                            hd_size *label_count);
+
+// DBSCAN聚类函数声明
+hd_error label_candidate_clusters_kd_dbscan(hd_size count,
+                                            ConstRawCandidates d_cands,
+                                            hd_size time_tol,
+                                            hd_size filter_tol, hd_size dm_tol,
+                                            hd_size *d_labels,
+                                            hd_size *label_count);
+
+// 排序聚类函数声明
+hd_error label_candidate_clusters_sorted(hd_size count,
+                                         ConstRawCandidates d_cands,
+                                         hd_size time_tol, hd_size filter_tol,
+                                         hd_size dm_tol, hd_size *d_labels,
+                                         hd_size *label_count);
