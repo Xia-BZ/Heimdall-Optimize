@@ -1,6 +1,79 @@
-Here's a clean and well-formatted Markdown version of your command-line help text, suitable for inclusion in a `README.md` file:
+## 📦 Prerequisites
 
-```markdown
+Before building **Heimdall**, ensure the following dependencies are installed:
+
+- **[Dedisp](https://github.com/ajameson/dedisp)**
+- **Boost** (version ≥ 1.49)
+- **[PSRDADA](https://sourceforge.net/p/psrdada/code/)**
+- **CUDA Toolkit** (version ≥ 6.0)
+
+> 💡 **Recommended directory layout**  
+> - Source code: `$HOME/source/<package>`  
+> - Install prefix: `$HOME/software/<package>`  
+> - CUDA installed at: `/usr/local/cuda`
+
+---
+
+## 🔧 Installation Steps
+
+### 1. Install Boost
+Use your system’s package manager (e.g., `apt`, `yum`, `brew`) to install Boost ≥ 1.49:
+```bash
+# Ubuntu/Debian example
+sudo apt-get install libboost-all-dev
+```
+
+### 2. Install Dedisp
+```bash
+cd $HOME/source
+git clone https://github.com/ajameson/dedisp.git
+cd dedisp
+make INSTALL_DIR=$HOME/software/dedisp install
+```
+
+### 3. Install PSRDADA
+```bash
+cd $HOME/source
+git clone https://git.code.sf.net/p/psrdada/code psrdada
+cd psrdada
+./bootstrap
+./configure --prefix=$HOME/software/psrdada
+make install
+```
+
+### 4. Install Heimdall
+
+> ⚠️ **Note**: We use a maintained fork with optimizations.
+
+```bash
+cd $HOME/source
+git clone git@github.com:Xia-BZ/Heimdall-Optimize.git heimdall
+cd heimdall
+./bootstrap
+./configure \
+    --prefix=$HOME/software/heimdall/linux_64 \
+    --with-psrdada-dir=$HOME/software/psrdada \
+    --with-dedisp-dir=$HOME/software/dedisp \
+    --with-cuda-dir=/usr/local/cuda
+make install
+```
+
+After installation, the `heimdall` executable will be located in:
+```
+$HOME/software/heimdall/linux_64/bin/heimdall
+```
+
+Add this path to your `PATH` if desired:
+```bash
+export PATH="$HOME/software/heimdall/linux_64/bin:$PATH"
+```
+
+---
+
+✅ You’re now ready to run Heimdall! See `heimdall -h` for usage options.
+
+
+
 ## Usage
 
 After compiling, a command-line application named `heimdall` will be built, along with several utility programs.
@@ -49,3 +122,16 @@ Usage: heimdall [options]
 
 > 💡 **Tip**: Most numerical parameters have sensible defaults—only override them if you understand their impact on sensitivity or performance.
 ```
+
+
+## 📌 About This Repository
+
+This codebase is a **modified and optimized version** of the original **Heimdall** transient detection pipeline, developed for real-time radio pulsar and fast radio burst (FRB) searches.
+
+- **Original Heimdall repository**:  
+  [https://sourceforge.net/p/heimdall-astro/code/](https://sourceforge.net/p/heimdall-astro/code/)
+
+- **This fork**:  
+  [`git@github.com:Xia-BZ/Heimdall-Optimize.git`](https://github.com/Xia-BZ/Heimdall-Optimize)
+
+
