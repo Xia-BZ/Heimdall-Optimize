@@ -138,8 +138,7 @@ This codebase is a **modified and optimized version** of the original **Heimdall
 
 This work uses (or is evaluated on) the **FAST-FREX** dataset:  
 **"FAST-FREX: The FAST Dataset for Fast Radio Bursts Exploration"**  
-
-- **DOI**: [10.57760/sciencedb.15070](https://doi.org/10.57760/sciencedb.15070)  
+ 
 - **ScienceDB Link**: [https://doi.org/10.57760/sciencedb.15070](https://doi.org/10.57760/sciencedb.15070)  
 
 
