@@ -131,7 +131,6 @@ This codebase is a **modified and optimized version** of the original **Heimdall
 - **Original Heimdall repository**:  
   [https://sourceforge.net/p/heimdall-astro/code/](https://sourceforge.net/p/heimdall-astro/code/)
 
-当然！以下是将该 ScienceDB 数据集 DOI 链接以规范、清晰的方式加入文档或 README 的建议写法，适用于学术论文、技术报告或代码仓库的说明文件：
 
 ---
 
