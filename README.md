@@ -131,7 +131,17 @@ This codebase is a **modified and optimized version** of the original **Heimdall
 - **Original Heimdall repository**:  
   [https://sourceforge.net/p/heimdall-astro/code/](https://sourceforge.net/p/heimdall-astro/code/)
 
-- **This fork**:  
-  [`git@github.com:Xia-BZ/Heimdall-Optimize.git`](https://github.com/Xia-BZ/Heimdall-Optimize)
+当然！以下是将该 ScienceDB 数据集 DOI 链接以规范、清晰的方式加入文档或 README 的建议写法，适用于学术论文、技术报告或代码仓库的说明文件：
+
+---
+
+## 📊 Dataset
+
+This work uses (or is evaluated on) the **FAST-FREX** dataset:  
+**"FAST-FREX: The FAST Dataset for Fast Radio Bursts Exploration"**  
+
+- **DOI**: [10.57760/sciencedb.15070](https://doi.org/10.57760/sciencedb.15070)  
+- **ScienceDB Link**: [https://doi.org/10.57760/sciencedb.15070](https://doi.org/10.57760/sciencedb.15070)  
+
 
 
